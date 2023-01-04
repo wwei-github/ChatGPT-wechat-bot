@@ -1,4 +1,5 @@
 export default {
+  apiKey: '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',
   // 填入你的session token
   chatGPTSessionToken: '',
   clearanceToken: '',

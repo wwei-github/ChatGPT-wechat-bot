@@ -1,14 +1,13 @@
-import { ChatGPTAPI } from 'chatgpt';
+import { ChatGPTAPI, ChatGPTAPIBrowser } from 'chatgpt';
+import { Configuration, OpenAIApi } from 'openai';
 import pTimeout from 'p-timeout';
 import config from './config';
 import { retryRequest } from './utils';
 
 const conversationMap = new Map();
-const chatGPT = new ChatGPTAPI({
-  sessionToken: config.chatGPTSessionToken,
-  clearanceToken: config.clearanceToken,
-  userAgent: config.userAgent,
-});
+
+const configuration = new Configuration({ apiKey: config.apiKey });
+const openai = new OpenAIApi(configuration);
 
 function resetConversation(contactId: string) {
   if (conversationMap.has(contactId)) {
@@ -16,26 +15,18 @@ function resetConversation(contactId: string) {
   }
 }
 
-function getConversation(contactId: string) {
-  if (conversationMap.has(contactId)) {
-    return conversationMap.get(contactId);
-  }
-  const conversation = chatGPT.getConversation();
-  conversationMap.set(contactId, conversation);
-  return conversation;
-}
-
-async function getChatGPTReply(content, contactId) {
-  const currentConversation = getConversation(contactId);
-  // send a message and wait for the response
-  const threeMinutesMs = 3 * 60 * 1000;
-  const response = await pTimeout(currentConversation.sendMessage(content), {
-    milliseconds: threeMinutesMs,
-    message: 'ChatGPT timed out waiting for response',
+async function getChatGPTReply(prompt, contactId) {
+  const { data, status } = await openai.createCompletion({
+    prompt,
+    model: 'text-davinci-003',
+    temperature: 0.5,
+    max_tokens: 2048,
   });
-  console.log('response: ', response);
-  // response is a markdown-formatted string
-  return response;
+  if (status !== 200) {
+    return '发送错误，请稍后重试';
+  }
+  const res = data.choices[0]?.text?.trim() ?? '';
+  return res;
 }
 
 export async function replyMessage(contact, content, contactId) {
